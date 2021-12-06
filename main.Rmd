@@ -77,7 +77,6 @@ for(i in 1:5){#for k folds
 my_rmse
 ```
 
-
 ```{r}
 for(i in 1:nrow(my_rmse)){
   print(mean(my_rmse[i,]))
