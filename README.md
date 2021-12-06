@@ -1,7 +1,8 @@
-## Forest Fire Linear Regression in R
+# Forest Fire Linear Regression in R
 
 Linear Regression and hyper parameter tuning project using the Forest Fire dataset from UCI Machine Learning Repository [https://archive.ics.uci.edu/ml/index.php]
 
+## Explanation of the variables
 The variables are as follows: X, Y, month, day, FFMC, DMC, DC, ISI, temp, RH, wind, rain, and area.  
 
 - X is the x-axis coordinates from the Montesinho park map  
@@ -20,7 +21,7 @@ The variables are as follows: X, Y, month, day, FFMC, DMC, DC, ISI, temp, RH, wi
 
 [Cortez and Morais, 2007] P. Cortez and A. Morais. A Data Mining Approach to Predict Forest Fires using Meteorological Data. In J. Neves, M. F. Santos and J. Machado Eds., New Trends in Artificial Intelligence, Proceedings of the 13th EPIA 2007 - Portuguese Conference on Artificial Intelligence, December, Guimarães, Portugal, pp. 512-523, 2007. APPIA, ISBN-13 978-989-95618-0-9. Available at: [https://archive.ics.uci.edu/ml/datasets/Forest+Fires]
 
-# Summary
+## Summary
 In this project, I analyzed the forest fire dataset from UCI learning repository using linear regression, random forests and gbm. The reason why I carried out this project is I wanted to find out the best machine learning method to use on this dataset.  
 
 I began the project by cleaning the data so that it was suitable for use. I first started by removing any NA values within the dataframe. From there, I performed a logarithmic transformation on the column area because the data was skewed towards zero. In order to prevent errors in the logarithmic transformation, I added one to each observation so that there would not be any logarithmic transformation of the number zero which leads to a computational error as log10(0) does not exist. I finally read in the categorical variables month, and day as a numeric factor and now the dataset is ready for use.
@@ -32,9 +33,15 @@ ff$month=as.numeric(as.factor(ff$month))
 ff$day=as.numeric(as.factor(ff$day))
 ```
 
+```
+hist(ff$area,col="blue",main="Histogram of Area",xlab="Area")
+```
 This is a histogram of area before taking a logarithmic transformation. It is clearly skewed towards zero.  
 ![image](https://user-images.githubusercontent.com/95319198/144772914-b7315805-6db8-45e5-b586-90e5600c4f88.png)  
 
+```
+hist(ff$area,col="blue",main="Histogram of log10(area)",xlab="Area")
+```
 
 This is a histogram of area after taking a logarithmic transformation.
 ![image](https://user-images.githubusercontent.com/95319198/144772930-5f5122bc-7544-4c86-b910-2db3083d60dc.png)  
@@ -52,6 +59,7 @@ return(folds.rand)
 I compared the RMSE of four different types of models: full model linear regression, best subset (stepwise) regression, random forest, and gbm. The best subset used X, DMC, RH, and wind to predict the response variable. For the random forest method, and the gbm method, I started off by using the default parameters so that there wasn’t any bias in the results.
 
 ```
+
 K=10; N = nrow(ff)
 folds = get.folds(N,K)
 
@@ -85,12 +93,24 @@ for(i in 1:5){#for k folds
   gbm=gbm(area~.,distribution = "gaussian",data=train_set)
   gbm_preds=predict.gbm(gbm,test_set)
   my_rmse["gbm",i]=mean((test_set_validation-gbm_preds)^2)
+ } 
+ 
+for(i in 1:nrow(my_rmse)){
+  my_rmse[i,6]=mean(my_rmse[i,1:5])
+}
+my_rmse
+  
 ```
 
 ![image](https://user-images.githubusercontent.com/95319198/144773367-7ae05efe-070d-4f44-a4d1-a5548321d183.png)  
 
 From the results, we can see that gbm performed the best with the lowest RMSE after taking the average of the iterations. From there, for the random forests and stochastic gradient boosting methods, I tuned the parameters so that I knew which parameters provided the best results. 
 ```
+index = createDataPartition(ff$month,times=1,p=0.7,list=FALSE)
+train_set1 = ff[index,]
+test_set1 = ff[-index,]
+test_set_validation1=test_set1$area
+
 rfGrid <-  expand.grid(mtry = c(2,3,4,5,6,7,8,9,10,11))
 rfControl <- trainControl(method = "cv",number = 10)
 rf_Fit <- train(area ~ ., data = train_set1, method = "rf", n.trees=500)
@@ -109,6 +129,11 @@ The resulting best models are as follows:
 I then tested the gbm method and the random forest methods with the optimal values for their adjustable parameters. I once again compared the RMSE of the newly improved models and the results are now as follows.  
 
 ```
+#Creating dataframe for tuned rf and gbm
+my_rmse1 = array(0,dim=c(2,6))
+rownames(my_rmse1) = c("rf_tuned","gbm_tuned")
+colnames(my_rmse1)=c("1","2","3","4","5","Mean")
+
 best_gbm=gbm(area~.,distribution = "gaussian",data=train_set1,n.trees=50,interaction.depth=1,n.minobsinnode=10,shrinkage=0.1)
 for(i in 1:5){
   #Rf
@@ -129,6 +154,7 @@ for(i in 1:nrow(my_rmse1)){
 my_rmse1
 ```
 ![image](https://user-images.githubusercontent.com/95319198/144773428-bc3dd63e-84f6-4dd1-b683-d85b5ab97e82.png)  
+
 Overall, the methods: linear regression, best_subset, random forest all had similar RMSE values all around 0.40. Gbm with the default parameters and random forests with the tuned parameters had a slightly better RMSE of 0.39. The gbm method with tuned parameters had the best results with an average RMSE of 0.3386348. There are many more machine learning techniques, but in this project, of the six tested models, the gbm method with tuned parameters had by far the best fit.  
 
 
