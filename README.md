@@ -1,4 +1,4 @@
-# FF-Reg-Classification
+# Forest Fire Linear Regression
 
 Linear Regression and hyper parameter tuning project using the Forest Fire dataset from UCI Machine Learning Repository [https://archive.ics.uci.edu/ml/index.php]
 
