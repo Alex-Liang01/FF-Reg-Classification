@@ -1,5 +1,5 @@
 ---
-title: "Student Data"
+title: "Forest Fire Data"
 author: "Alex Liang"
 date: "03/12/2021"
 output: html_document
@@ -18,21 +18,32 @@ library(gbm)
 
 #Setting seed to create reproducable results
 ```{r}
-set.seed(23)
+set.seed(12)
 ```
-
+#This dataset is from the UCI Machine Learning Repository https://archive.ics.uci.edu/ml/datasets/Forest+Fires 
 #Cleaning the data
 ```{r}
 ff=read.csv("forestfires.csv")
 ff=ff%>%drop_na()
+```
+
+#Histogram of area before logarithmic transformation
+```{r}
+hist(ff$area,col="blue",main="Histogram of Area",xlab="Area")
+```
+
+```{r}
 ff$area=log10(ff$area+1)
 ff$month=as.numeric(as.factor(ff$month))
 ff$day=as.numeric(as.factor(ff$day))
-head(ff)
 ```
+#Histogram of area after logarithmic transformation
 ```{r}
-w=cor(ff)
-corrplot(w,method="color",order="hclust",type="upper")
+hist(ff$area,col="blue",main="Histogram of log10(area)",xlab="Area")
+```
+
+```{r}
+head(ff)
 ```
 
 #Now evaluating different datasets performance
@@ -44,12 +55,16 @@ fold.ids = fold.ids.raw[1:n]
 folds.rand = fold.ids[sample.int(n)]
 return(folds.rand)
 }
+```
 
+```{r}
 K=10; N = nrow(ff)
 folds = get.folds(N,K)
 
-my_rmse = array(0,dim=c(4,5))
+#Creating Dataframe
+my_rmse = array(0,dim=c(4,6))
 rownames(my_rmse) = c("linear_mod","best_subset","rf","gbm")
+colnames(my_rmse)=c("1","2","3","4","5","Mean")
 
 for(i in 1:5){#for k folds
   
@@ -57,33 +72,34 @@ for(i in 1:5){#for k folds
   test_set = ff[folds==i,]
   test_set_validation=test_set$area 
   
+  #Full linear model
   linear_reg = lm(area~.,train_set)
   linear_preds = predict.lm(linear_reg,test_set)
   my_rmse["linear_mod",i] = mean((test_set_validation-linear_preds)^2)
   
-  
+  #Best subset linear model
   best_sub=step.model=stepAIC(linear_reg,direction="both",trace=FALSE)
   best_preds=predict.lm(best_sub,test_set)
   my_rmse["best_subset",i]=mean((test_set_validation-best_preds)^2)
   
+  #Rf
   random_f=randomForest(area~.,data=train_set,importance=TRUE,ntree=500)
   rf_preds=predict(random_f,test_set)
   my_rmse["rf",i]=mean((test_set_validation-rf_preds)^2)
   
+  #gbm
   gbm=gbm(area~.,distribution = "gaussian",data=train_set)
   gbm_preds=predict.gbm(gbm,test_set)
   my_rmse["gbm",i]=mean((test_set_validation-gbm_preds)^2)
 }
-my_rmse
 ```
-
 
 ```{r}
 for(i in 1:nrow(my_rmse)){
-  print(mean(my_rmse[i,]))
+  my_rmse[i,6]=mean(my_rmse[i,1:5])
 }
+my_rmse
 ```
-
 ```{r}
 index = createDataPartition(ff$month,times=1,p=0.7,list=FALSE)
 train_set1 = ff[index,]
@@ -91,56 +107,47 @@ test_set1 = ff[-index,]
 test_set_validation1=test_set1$area
 ```
 
-
 ```{r}
 rfGrid <-  expand.grid(mtry = c(2,3,4,5,6,7,8,9,10,11))
-
-rfControl <- trainControl(## 10-fold CV 
-                          method = "cv",
-                          number = 10)
-
-rf_Fit <- train(area ~ ., data = train_set1, 
-                method = "rf", 
-                n.trees=500)
+rfControl <- trainControl(method = "cv",number = 10)
+rf_Fit <- train(area ~ ., data = train_set1, method = "rf", n.trees=500)
 rf_Fit
 ```
 
 ```{r}
-
+#Creating dataframe for tuned rf and gbm
+my_rmse1 = array(0,dim=c(2,6))
+rownames(my_rmse1) = c("rf_tuned","gbm_tuned")
+colnames(my_rmse1)=c("1","2","3","4","5","Mean")
 ```
 
+```{r}
+gbmGrid=expand.grid(n.trees=c(300,400,500,600,800,1000),interaction.depth=c(1,2,3),shrinkage=c(0.001,0.01,0.05,0.25),n.minobsinnode=c(10))
+gbmControl <- trainControl(method = "cv",number = 10)
+gbm_Fit <- train(area ~ ., data = train_set1, method = "gbm", verbose=FALSE)
+gbm_Fit
+```
 
 ```{r}
-for(j in 1:5){
+best_gbm=gbm(area~.,distribution = "gaussian",data=train_set1,n.trees=50,interaction.depth=1,n.minobsinnode=10,shrinkage=0.1)
+for(i in 1:5){
+  #Rf
   best_rf=randomForest(area~.,data=train_set1,importance=TRUE,ntree=500,mtry=2)
   best_rf_preds=predict(best_rf,test_set1)
-  best_rf_rmse=mean((test_set_validation1-best_rf_preds)^2)
-  print(best_rf_rmse)
-  
+  my_rmse1["rf_tuned",i]=mean((test_set_validation1-best_rf_preds)^2)
+  #GBM
+  best_gbm=gbm(area~.,distribution = "gaussian",data=train_set1,n.trees=50,interaction.depth=1,n.minobsinnode=10,shrinkage=0.1)
+  best_gbm_preds=predict.gbm(best_gbm,test_set1)
+  best_rf_preds=predict(best_rf,test_set1)
+  my_rmse1["gbm_tuned",i]=mean((test_set_validation1-best_gbm_preds)^2)
 }
 ```
 
 ```{r}
-gbmGrid=expand.grid(n.trees=c(300,400,500,600,800,1000),
-                     interaction.depth=c(1,2,3),
-                     shrinkage=c(0.001,0.01,0.05,0.25),
-                     n.minobsinnode=c(10))
-gbmControl <- trainControl(## 10-fold CV
-                           method = "cv",
-                           number = 10)
-gbm_Fit <- train(area ~ ., data = train_set1, 
-                method = "gbm", verbose=FALSE
-                )
-gbm_Fit
+#Mean of results
+for(i in 1:nrow(my_rmse1)){
+  my_rmse1[i,6]=mean(my_rmse1[i,1:5])
+}
+
+my_rmse1
 ```
-
-
-```{r}
-best_gbm=gbm(area~.,distribution = "gaussian",data=train_set1,n.trees=50,interaction.depth=1,n.minobsinnode=10,shrinkage=0.1)
-best_gbm_preds=predict.gbm(best_gbm,test_set1)
-best_gbm_rmse=mean((test_set_validation1-best_gbm_preds)^2)
-best_gbm_rmse
-```
-
-
-
