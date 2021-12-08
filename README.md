@@ -1,4 +1,4 @@
-# Forest Fire Linear Regression in R
+# Forest Fire Regression Analysis in R
 
 Linear Regression and hyper parameter tuning project using the Forest Fire dataset from UCI Machine Learning Repository [https://archive.ics.uci.edu/ml/index.php]
 
