@@ -161,4 +161,8 @@ Overall, the methods: linear regression, best_subset, random forest all had simi
 
 
 
+https://user-images.githubusercontent.com/95319198/147025718-db7dba1e-4714-4706-b0cf-486eff1f0f63.mp4
+
+
+
 
